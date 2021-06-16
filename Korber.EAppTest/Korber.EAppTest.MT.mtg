@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-16"?>
+<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <WCFPort>12483</WCFPort>
+  <WCFDatabaseType>SQL Server</WCFDatabaseType>
+  <WCFConnectionString>Data Source=;Database=;User ID=;Password=;Trusted_Connection=False</WCFConnectionString>
+  <WCFGenerateInstallation>false</WCFGenerateInstallation>
+  <WCFGenerateAzure>false</WCFGenerateAzure>
+  <WCFSecondLevelCache>true</WCFSecondLevelCache>
+  <WCFCSHost>localhost</WCFCSHost>
+  <WCFCSPort>30000</WCFCSPort>
+  <WCFInstall>true</WCFInstall>
+  <WCFInstallCustomDlg>false</WCFInstallCustomDlg>
+  <WCFAzure>false</WCFAzure>
+  <WCFCache>false</WCFCache>
+  <GenerateMappings>true</GenerateMappings>
+  <GenerateCommon>true</GenerateCommon>
+  <GenerateDalBll>true</GenerateDalBll>
+  <GenerateServiceLayer>true</GenerateServiceLayer>
+  <GenerateClientProxies>false</GenerateClientProxies>
+  <GenerateIntegrationTests>false</GenerateIntegrationTests>
+  <ApplicationId>EAppTest</ApplicationId>
+  <ApplicationDescription>EAppTest</ApplicationDescription>
+  <MultiTennant>true</MultiTennant>
+  <MultiTenantType>Multi-DB</MultiTenantType>
+  <AutoDB>true</AutoDB>
+  <UseOldAlertSettings>false</UseOldAlertSettings>
+  <Udf>true</Udf>
+  <MobileGeneration>true</MobileGeneration>
+  <MiddleTierGeneration>false</MiddleTierGeneration>
+  <AssemblyVersion>1.0.0.0</AssemblyVersion>
+  <CommonAssemblyVersion>1.0.0.0</CommonAssemblyVersion>
+  <ScheduleProviderMethods />
+  <ODataMethods />
+  <WorkflowEntityTypes />
+  <WorkflowMethods />
+  <CustomQueries />
+  <NuGetVersionOverrides />
+  <DataDefSource>SQL Server Database</DataDefSource>
+  <UseCouchbase>false</UseCouchbase>
+  <SqlDataSourceConnectionString>Data Source=;Database=;User ID=;Password=;Trusted_Connection=False</SqlDataSourceConnectionString>
+  <ServiceSettings />
+  <CodeGeneratorVersion>3.1.10.2</CodeGeneratorVersion>
+  <DefaultManyToOneCascade>none</DefaultManyToOneCascade>
+  <DefaultOneToManyCascade>none</DefaultOneToManyCascade>
+  <DefaultIDGeneratorClass>&lt;Auto&gt;</DefaultIDGeneratorClass>
+  <DefaultLazy>true</DefaultLazy>
+  <DefaultManyToOneNotFound>exception</DefaultManyToOneNotFound>
+  <Schema>dbo</Schema>
+  <Locked>false</Locked>
+  <BuildTimeRegenDisabled>false</BuildTimeRegenDisabled>
+  <BaseNamespace>Korber.EAppTest.MT</BaseNamespace>
+  <ProviderGuid>71c81385-a157-4929-9962-313ca1780ec0</ProviderGuid>
+</Project>

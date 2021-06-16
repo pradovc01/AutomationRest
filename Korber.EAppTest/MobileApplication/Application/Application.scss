@@ -1,0 +1,11 @@
+// Referencing HighJump One Platform variables
+//   - Use the variables from the referenced file in your styles to access HighJump One Platform colors
+//   - Example: .class { color: $hj-primary1-color; }
+//   - Note: Do not modify files from .Externals directly -- all changes will be overwritten
+@import "../../.Externals/HighJump/HighJumpOne/Libraries/HighJump/Mobile/Styles/variables-colors";
+
+// All application styles should be wrapped in the application class name
+div.eapptest {
+    // Put your application-specific styles here
+}
+

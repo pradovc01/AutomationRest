@@ -1,0 +1,482 @@
+<#
+//=================================================================================================
+//      Copyright Körber Supply Chain U.S., Inc. (a successor in interest to HighJump Software Inc.) All Rights Reserved.
+//      Körber is a trademark of Körber AG, Anckelmannsplatz 1, 20537 Hamburg, Germany.
+//      All other trademarks used are the property of their respective owners.
+//      For a complete copyright notice, see "Körber One Administrators Guide".
+//=================================================================================================
+#>
+<#@ template language="C#" hostspecific="true" #>
+<#@ assembly name="System" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Web" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="System.Xml.Linq" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Xml.Linq" #>
+<#@ import namespace="System.Web" #>
+<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
+<#@ output extension=".ts" encoding="utf-8" #>
+<#
+var rootModuleName = "Korber.EAppTest";
+var localizationModuleName = "";
+
+string directoryPath = Path.GetDirectoryName(Host.TemplateFile);
+string rootDirectoryPath = Directory.GetParent(directoryPath).FullName;
+string applicationDescriptorFilePath = Path.Combine(rootDirectoryPath, "ApplicationDescriptor.xml");
+
+string applicationId = "HighJump One Platform";
+
+if(File.Exists(applicationDescriptorFilePath))
+{
+	localizationModuleName = ".Localization";
+
+	var applicationDescriptorFileContent = File.ReadAllText(applicationDescriptorFilePath);
+	var applicationDescriptorDoc = XDocument.Parse(applicationDescriptorFileContent);
+	applicationId = applicationDescriptorDoc.Document.Root.Attribute("Id").Value;
+}
+else
+{
+	string reference = "///<reference path=\"../Localization/LocalizedStringsBase.ts\" />";
+#>
+<#=	reference #>
+<#}
+
+var generatedLocalizedStringsTypes = new Dictionary<string, string>();
+var generatedServicesTypes = new Dictionary<string, string>();
+
+var applicationLocalizedStringsBuilder = new LocalizedStringsBuilder(applicationId, rootModuleName + localizationModuleName, "", "hj.Localization.ILocalizedStringsBase");
+var applicationLocalizationServiceBuilder = new LocalizationServiceBuilder(applicationId, rootModuleName + ".Localization", "");
+
+string applicationDefinitionFilePath = Path.ChangeExtension(Host.TemplateFile, ".xml");
+
+foreach (string filePath in Directory.EnumerateFiles(rootDirectoryPath, "*LocalizedStrings.xml", SearchOption.AllDirectories))
+{
+	var allowedTypes = new string[] { "Application", "Page", "Shared" };
+	string fileContent = File.ReadAllText(filePath);
+	var doc = XDocument.Parse(fileContent);
+	string type = doc.Document.Root.Attribute("type")?.Value ?? string.Empty;
+
+	if(string.IsNullOrEmpty(type))
+	{
+		throw new Exception($"Unable to process localization file [{filePath}]. Attribute type is required.");
+	}
+
+	if(!allowedTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
+	{
+		throw new Exception($"Unable to process localization file [{filePath}]. Attribute type has invalid value [{type}]. Allowed values are [{string.Join(",", allowedTypes)}]");
+	}
+
+	if(type.Equals("Application", StringComparison.OrdinalIgnoreCase))
+	{
+		if (doc.Document.Root.Attributes().Count() > 1)
+        {
+            throw new Exception($"Unable to process application localization file [{filePath}]. Expected only type attribute at root element. [{string.Join(",", doc.Document.Root.Attributes().Select(x => x.Name))}]");
+        }
+
+		applicationLocalizedStringsBuilder.Build(filePath);
+		applicationLocalizationServiceBuilder.Build(filePath);
+
+		continue;
+	}
+
+	if(type.Equals("Page", StringComparison.OrdinalIgnoreCase))
+	{
+		string pageTag = doc.Document.Root.Attribute("pageTag") != null ? doc.Document.Root.Attribute("pageTag").Value : null;
+		if (string.IsNullOrEmpty(pageTag))
+        {
+            throw new Exception($"Unable to process page localization file [{filePath}]. Attribute pageTag is required at root element.");
+        }
+	}
+
+	if(type.Equals("Shared", StringComparison.OrdinalIgnoreCase))
+	{
+		if (doc.Document.Root.Attributes().Count() > 1)
+        {
+            throw new Exception($"Unable to process application localization file [{filePath}]. Expected only type attribute at root element. [{string.Join(",", doc.Document.Root.Attributes().Select(x => x.Name))}]");
+        }
+
+	}
+	
+	var folders = Directory.GetParent(filePath).FullName.Replace(rootDirectoryPath, "").Split('\\').Skip(1);
+	string moduleName = rootModuleName + "." + string.Join(".", folders).Trim('.');
+	string typeName = Path.GetFileName(filePath).Replace(".LocalizedStrings.xml", "").Replace(".", "");
+	var localizedStringsBuilder = new LocalizedStringsBuilder(applicationId, moduleName, typeName);
+	var localizationServiceBuilder = new LocalizationServiceBuilder(applicationId, moduleName, typeName);
+
+	localizationServiceBuilder.Build(filePath);
+	string serviceBuilderResult = localizationServiceBuilder.ToString();
+	generatedLocalizedStringsTypes.Add(moduleName + ".I" + typeName + "LocalizedStrings", moduleName + "." + typeName + "LocalizedStrings");
+	if(!string.IsNullOrEmpty(serviceBuilderResult)) {
+		generatedServicesTypes.Add(moduleName + ".I" + typeName + "LocalizationService", moduleName + "." + typeName + "LocalizationService");
+	}
+
+	localizedStringsBuilder.Build(filePath);
+#>
+<#=	localizedStringsBuilder.ToString() #>
+
+<#if(!string.IsNullOrEmpty(serviceBuilderResult)) {
+#>
+<#=	serviceBuilderResult #>
+<#}#>
+<#}#>
+
+<#
+var applicationLocalizedStringsResult = applicationLocalizedStringsBuilder.ToString();
+var applicationLocalizationServiceResult = applicationLocalizationServiceBuilder.ToString();
+if(File.Exists(applicationDefinitionFilePath))
+{
+	if(!string.IsNullOrEmpty(applicationLocalizedStringsResult))
+	{
+		generatedLocalizedStringsTypes.Add(rootModuleName + localizationModuleName + ".ILocalizedStrings", rootModuleName + localizationModuleName + ".LocalizedStrings");
+	}
+
+	if(!string.IsNullOrEmpty(applicationLocalizationServiceResult))
+	{
+		generatedServicesTypes.Add(rootModuleName + ".Localization.ILocalizationService", rootModuleName + ".Localization.LocalizationService");
+	}
+#>
+<#=	applicationLocalizedStringsResult #>
+<#=	applicationLocalizationServiceResult #>
+<#}#>
+
+<# //Configuration Function #>
+module <#= rootModuleName #>.Localization {
+	export function configure(applicationConfiguration: hj.IApplicationConfiguration) {
+<#
+foreach (var typeEntry in generatedLocalizedStringsTypes)
+{
+	#>
+		applicationConfiguration.registerService<<#= typeEntry.Key #>>("<#= typeEntry.Key #>", <#= typeEntry.Value #>);
+<#
+}
+foreach (var typeEntry in generatedServicesTypes)
+{
+	//Application Localization Service
+	if(typeEntry.Key == rootModuleName + ".Localization.ILocalizationService" && !string.IsNullOrEmpty(applicationLocalizationServiceResult)) {
+	#>
+		applicationConfiguration.registerLocalizationService(<#= typeEntry.Value #>, ["hj.Services.ILocalizationService"]);
+<# }
+	else {
+	//Custom Localization Service
+		#>
+		applicationConfiguration.registerService<<#= typeEntry.Key #>>("<#= typeEntry.Key #>", <#= typeEntry.Value #>, ["hj.Services.ILocalizationService"]);
+<# }
+}
+#>
+	}
+}
+<#+
+public class LocalizedStringsBuilder
+{
+    private string moduleName;
+    private string typeName;
+	private StringBuilder interfaceBuilder = new StringBuilder();
+	private StringBuilder implementationBuilder = new StringBuilder();
+    private StringBuilder nestedClassesStringBuilder = new StringBuilder();
+	private string applicationId;
+	private string groupId;
+	private string fullTypeName;
+	private string localizedStringsBaseInterface;
+
+    public LocalizedStringsBuilder(string applicationId, string moduleName, string typeName, string localizedStringsBaseInterface = "")
+    {
+		this.applicationId = applicationId;
+		this.moduleName = moduleName;
+        this.typeName = typeName;
+		this.fullTypeName = typeName + "LocalizedStrings";
+		this.localizedStringsBaseInterface = localizedStringsBaseInterface;
+		this.interfaceBuilder = new StringBuilder();
+		this.implementationBuilder = new StringBuilder();
+    }
+
+	public override string ToString()
+	{
+		StringBuilder builder = new StringBuilder();
+
+		builder.AppendFormat("module {0} {{", moduleName).AppendLine();
+        builder.AppendFormat("\texport interface I{0}{1} {{", fullTypeName, !string.IsNullOrEmpty(localizedStringsBaseInterface) ? " extends " + localizedStringsBaseInterface : "").AppendLine();
+		
+        builder.AppendLine(this.interfaceBuilder.ToString());
+		
+        builder.AppendLine("\t}");
+        builder.AppendLine("}");
+
+		builder.AppendFormat("module {0} {{", moduleName).AppendLine();
+        builder.AppendFormat("\texport class {0} extends hj.Localization.LocalizedStringsBase implements I{0} {{", fullTypeName).AppendLine();
+		builder.Append(new string('\t', 2));
+		builder.AppendFormat("constructor(localizedStringProvider?: hj.Localization.ILocalizedStringProvider) {{").AppendLine();
+		builder.Append(new string('\t', 3));
+		builder.AppendFormat("super(\"{0}\", localizedStringProvider);", applicationId).AppendLine();
+		builder.Append(new string('\t', 2));
+		builder.AppendLine("}");
+
+        builder.AppendLine(this.implementationBuilder.ToString());
+
+        builder.AppendLine("\t}");
+        builder.AppendLine("}");
+
+		builder.AppendLine();
+		if(nestedClassesStringBuilder.Length > 0)
+		{
+			builder.AppendLine(nestedClassesStringBuilder.ToString());
+		}
+
+		return builder.ToString().Trim();
+    }
+
+	public void Build(string filePath)
+	{
+        string fileContent = File.ReadAllText(filePath);
+		
+		BuildInterfaceDefinition(this.interfaceBuilder, fileContent);
+	
+		BuildImplementationDefinition(this.implementationBuilder, fileContent);
+	}
+
+    public void BuildInterfaceDefinition(StringBuilder builder, string fileContent)
+    {
+        var doc = XDocument.Parse(fileContent);
+
+        int indent = 2;
+        foreach (var element in doc.Document.Root.Elements())
+        {
+            ProcessInterfaceDefinition(builder, indent, element);
+        }
+    }
+
+    private void ProcessInterfaceDefinition(StringBuilder builder, int indent, XElement element)
+    {
+        builder.Append(new string('\t', indent));
+        if (element.Attribute("groupId") != null || element.Attribute("pageTag") != null)
+        {
+            builder.AppendFormat("{0}: {{", element.Name);
+        }
+        else if (element.Attribute("key") != null)
+        {
+            builder.AppendFormat("{0}: string;", element.Name.ToString().Replace(".", "_"));
+        }
+        else
+        {
+            builder.AppendFormat("{0}: {{", element.Name);
+        }
+        builder.AppendLine();
+        foreach (var decendent in element.Elements())
+        {
+            ProcessInterfaceDefinition(builder, indent + 1, decendent);
+        }
+
+        if (element.Attribute("groupId") != null || element.Attribute("pageTag") != null)
+        {
+            builder.Append(new string('\t', indent));
+            builder.AppendLine("};");
+        }
+        else if (element.Attribute("key") != null) {
+		}
+        else
+        {
+            builder.Append(new string('\t', indent));
+            builder.AppendLine("};");
+        }
+    }
+
+    public void BuildImplementationDefinition(StringBuilder builder, string fileContent)
+    {
+        var doc = XDocument.Parse(fileContent);
+		this.groupId = doc.Document.Root.Attribute("groupId") != null ? doc.Document.Root.Attribute("groupId").Value : (doc.Document.Root.Attribute("pageTag") != null ? doc.Document.Root.Attribute("pageTag").Value : null);
+
+        int indent = 2;
+        foreach (var element in doc.Document.Root.Elements())
+        {
+            ProcessImplementationDefinition(builder, indent, element, typeName);
+        }
+    }
+
+    private void ProcessImplementationDefinition(StringBuilder builder, int indent, XElement element, string parentClassName = null, string groupId = null)
+    {
+        builder.Append(new string('\t', indent));
+		string name = element.Name.ToString().Replace(".", "_");
+		string className = name[0].ToString().ToUpper() + name.Substring(1, name.Length - 1);
+        if (element.Attribute("groupId") != null)
+        {
+			indent++;
+            builder.AppendFormat("get {0}(): {1}{2}LocalizedStrings {{", name, parentClassName, className).AppendLine();
+			builder.Append(new string('\t', indent));
+			builder.AppendFormat("return new {0}{1}LocalizedStrings(this.localizedStringProvider);", parentClassName, className).AppendLine();
+			builder.Append(new string('\t', indent-1));
+			builder.AppendLine("}");
+        }
+        else if (element.Attribute("key") != null)
+        {
+            builder.AppendFormat("get {0}(): string {{", name);
+			builder.AppendLine();
+            builder.Append(new string('\t', indent+1));
+			builder.AppendFormat("return this.getString(\"{0}\", \"{1}\");", groupId ?? this.groupId, element.Attribute("key").Value);
+			builder.AppendLine();
+            builder.Append(new string('\t', indent));
+			builder.AppendLine("}");
+        }
+        else
+        {
+			indent++;
+            builder.AppendFormat("get {0}(): {1}{2}LocalizedStrings {{", name, parentClassName, className).AppendLine();
+			builder.Append(new string('\t', indent));
+			builder.AppendFormat("return new {0}{1}LocalizedStrings(this.localizedStringProvider);", parentClassName, className).AppendLine();
+			builder.Append(new string('\t', indent-1));
+			builder.AppendLine("}");
+        }
+		
+		StringBuilder nestedStringBuilder = new StringBuilder();
+
+		if (element.Attribute("groupId") != null || element.Attribute("key") == null) {
+			nestedStringBuilder.AppendFormat("module {0} {{", moduleName).AppendLine();
+			nestedStringBuilder.AppendFormat("\texport class {0}{1}LocalizedStrings extends hj.Localization.LocalizedStringsBase {{", parentClassName, className).AppendLine();
+			nestedStringBuilder.Append(new string('\t', indent-1));
+			nestedStringBuilder.AppendFormat("constructor(localizedStringProvider?: hj.Localization.ILocalizedStringProvider) {{").AppendLine();
+			nestedStringBuilder.Append(new string('\t', indent));
+			nestedStringBuilder.AppendFormat("super(\"{0}\", localizedStringProvider);", applicationId).AppendLine();
+			nestedStringBuilder.Append(new string('\t', indent-1));
+			nestedStringBuilder.AppendLine("}");
+		}
+
+        foreach (var decendent in element.Elements())
+        {
+			if(element.Attribute("groupId") != null)
+			{
+				ProcessImplementationDefinition(nestedStringBuilder, 2, decendent, parentClassName + className, element.Attribute("groupId").Value.ToString());
+			}
+			else if(element.Attribute("key") == null)
+			{
+				ProcessImplementationDefinition(nestedStringBuilder, 2, decendent, parentClassName + className, groupId);
+			}
+			else {	
+				ProcessImplementationDefinition(builder, indent + 1, decendent, parentClassName + className, groupId);
+			}
+        }        
+
+		if (element.Attribute("groupId") != null || element.Attribute("key") == null) {
+			nestedStringBuilder.AppendLine("\t}");
+			nestedStringBuilder.AppendLine("}");
+		}
+		
+		if(nestedStringBuilder.Length > 0)
+		{
+			nestedClassesStringBuilder.AppendLine(nestedStringBuilder.ToString());
+		}
+    }
+}
+
+public class LocalizationServiceBuilder
+{
+    private string moduleName;
+    private string typeName;
+	private string applicationId;
+	private string fullTypeName;
+	private StringBuilder interfaceBuilder = new StringBuilder();
+	private StringBuilder implementationBuilder = new StringBuilder();
+
+    public LocalizationServiceBuilder(string applicationId, string moduleName, string typeName)
+    {
+		this.applicationId = applicationId;
+		this.moduleName = moduleName;
+        this.typeName = typeName;
+		this.fullTypeName = typeName + "LocalizedStrings";
+    }
+
+	public void Build(string filePath)
+	{
+		string fileContent = File.ReadAllText(filePath);
+
+		BuildInterfaceDefinition(this.interfaceBuilder, fileContent);
+
+		BuildImplementationDefinition(this.implementationBuilder, fileContent);
+	}
+
+	public override string ToString()
+	{
+		var builder = new StringBuilder();
+
+		if(!string.IsNullOrEmpty(this.interfaceBuilder.ToString()))
+		{
+			builder.AppendFormat("{0}", this.interfaceBuilder.ToString()).AppendLine();
+
+			builder.AppendLine();
+		}
+
+		if(!string.IsNullOrEmpty(this.implementationBuilder.ToString()))
+		{
+			builder.AppendFormat("module {0} {{", moduleName).AppendLine();
+			if(string.IsNullOrEmpty(typeName)) {
+				builder.AppendFormat("\texport class {0}LocalizationService implements hj.Localization.ILocalizationService<I{1}> {{", typeName, fullTypeName).AppendLine();
+			}
+			else {
+				builder.AppendFormat("\texport class {0}LocalizationService implements I{0}LocalizationService {{", typeName).AppendLine();
+			}
+			builder.AppendFormat("\t\tprivate _applicationId = \"{0}\";", this.applicationId).AppendLine();
+			builder.AppendFormat("\t\tconstructor(private _localizationService: hj.Services.ILocalizationService) {{", fullTypeName).AppendLine();
+			builder.AppendLine("\t\t}");
+
+			builder.AppendFormat("\t\tload(): JQueryPromise<I{0}> {{", fullTypeName).AppendLine();
+			builder.AppendFormat("\t\t\tvar result = $.Deferred<I{0}>();", fullTypeName).AppendLine();
+			builder.AppendLine("\t\t\tvar localizationPackage = new hj.LocalizationPackage();");
+
+			builder.AppendFormat("{0}", this.implementationBuilder.ToString()).AppendLine();
+
+			builder.AppendLine("\t\t\tthis._localizationService.localize(this._applicationId, localizationPackage)");
+			builder.AppendFormat("\t\t\t\t.done(() => {{ result.resolve(new {0}()); }})", fullTypeName).AppendLine();
+			builder.AppendLine("\t\t\t\t.fail((jqXhr: JQueryXHR) => {{ result.reject(jqXhr); }});");
+
+
+			builder.AppendLine("\t\t\treturn result.promise();");
+			builder.AppendLine("\t\t}");
+
+			builder.AppendLine("\t}");
+			builder.AppendLine("}");
+		}
+
+        return builder.ToString().Trim();
+	}
+
+	private void BuildInterfaceDefinition(StringBuilder builder, string fileContent)
+    {
+        var doc = XDocument.Parse(fileContent);
+		string type = doc.Document.Root.Attribute("type")?.Value ?? string.Empty;
+		if(type.Equals("Shared", StringComparison.OrdinalIgnoreCase)) {
+			builder.AppendFormat("module {0} {{", moduleName).AppendLine();
+			builder.AppendFormat("\texport interface I{0}LocalizationService {{", typeName).AppendLine();
+			builder.AppendFormat("\t\tload(): JQueryPromise<I{0}>;", fullTypeName).AppendLine();
+
+			builder.AppendLine("\t}");
+			builder.AppendLine("}");
+		}
+    }	
+
+	private void BuildImplementationDefinition(StringBuilder builder, string fileContent)
+    {
+        var doc = XDocument.Parse(fileContent);
+		string type = doc.Document.Root.Attribute("type")?.Value ?? string.Empty;
+
+		if(type.Equals("Application", StringComparison.OrdinalIgnoreCase) || type.Equals("Shared", StringComparison.OrdinalIgnoreCase)) {
+			var tokens = ((from e in doc.Document.Root.Elements().Where(e => e.Attribute("groupId") != null).SelectMany(
+						e => e.Descendants().Where(x => x.Attribute("key") != null).Select(x =>
+									 new
+									 {
+										 GroupId = e.Attribute("groupId").Value,
+										 Key = x.Attribute("key").Value,
+										 LocalizedValue = x.Value
+									 })
+								 )
+							select e
+						).ToList());            
+
+			foreach(var token in tokens)
+			{
+				builder.AppendFormat("\t\t\tlocalizationPackage.addResource(\"{0}\", \"{1}\", \"{2}\");", token.GroupId, token.Key, token.LocalizedValue).AppendLine();
+			}
+		}
+    }
+}
+#>
